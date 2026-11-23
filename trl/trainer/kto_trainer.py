@@ -1185,9 +1185,14 @@ class KTOTrainer(_BaseTrainer):
                         "example in the dataset."
                     )
 
+                prompt_ids = prompt_ids[:prompt_len]
+                completion_ids = prompt_completion_ids[prompt_len:]
+                # `LengthGroupedSampler` reads `length_column_name` (default `"length"`). These rows have
+                # `prompt_ids` and `completion_ids`, not `input_ids`, so store the full sequence length here.
                 return {
-                    "prompt_ids": prompt_ids[:prompt_len],
-                    "completion_ids": prompt_completion_ids[prompt_len:],
+                    "prompt_ids": prompt_ids,
+                    "completion_ids": completion_ids,
+                    args.length_column_name: len(prompt_ids) + len(completion_ids),
                 }
 
             dataset = dataset.map(tokenize_fn, fn_kwargs={"processing_class": processing_class}, **map_kwargs)
@@ -1268,6 +1273,7 @@ class KTOTrainer(_BaseTrainer):
                     "label",
                     "ref_logps",
                     "ref_KL_logps",
+                    self.args.length_column_name,
                 ]
 
     def _get_train_sampler(self, train_dataset: Dataset | None = None) -> Sampler | None:

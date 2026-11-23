@@ -343,6 +343,32 @@ class TestKTOTrainer(TrlTestCase):
             if param.sum() != 0:  # ignore 0 biases
                 assert not torch.equal(param, new_param)
 
+    def test_train_group_by_length(self):
+        # Regression test for https://github.com/huggingface/trl/issues/8254
+        # `apo_zero_unpaired` is the only loss type that allows a non-sequential sampler. The tokenized rows have
+        # `prompt_ids` and `completion_ids`, and the length-grouped sampler must not require `input_ids`.
+        dataset = load_dataset("trl-internal-testing/zen", "standard_unpaired_preference", split="train")
+        # transformers < 5.2.0 still takes the boolean; later versions use `train_sampling_strategy`.
+        if "group_by_length" in KTOConfig.__dataclass_fields__:
+            sampling = {"group_by_length": True}
+        else:
+            sampling = {"train_sampling_strategy": "group_by_length"}
+        training_args = KTOConfig(
+            output_dir=self.tmp_dir,
+            loss_type="apo_zero_unpaired",
+            per_device_train_batch_size=2,
+            max_steps=2,
+            report_to="none",
+            **sampling,
+        )
+        trainer = KTOTrainer(
+            model="trl-internal-testing/tiny-Qwen2ForCausalLM-2.5",
+            args=training_args,
+            train_dataset=dataset,
+        )
+        trainer.train()
+        assert trainer.state.log_history[-1]["train_loss"] is not None
+
     def test_saved_model_keeps_its_router_config(self):
         # Regression test for https://github.com/huggingface/trl/issues/8102
         dataset = load_dataset("trl-internal-testing/zen", "conversational_unpaired_preference", split="train")
