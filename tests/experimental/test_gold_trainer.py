@@ -2505,6 +2505,24 @@ def test_uld_teacher_tokenizer_drops_the_teacher_revision_across_repos(tmp_path)
     assert trainer.teacher_tokenizer.name_or_path == _TINY_LLAMA
 
 
+def test_init_with_tokenizer_missing_pad_token(tmp_path):
+    # Llama 3.2 has no pad token. GOLD must fall back to eos for a plain tokenizer, as DPO, KTO, and SFT do.
+    model_id = _TINY_LLAMA
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    assert tokenizer.pad_token is None
+
+    dataset = load_dataset("trl-internal-testing/zen", "conversational_prompt_completion", split="train")
+    trainer = GOLDTrainer(
+        model=model_id,
+        teacher_model=model_id,
+        args=GOLDConfig(output_dir=str(tmp_path), report_to="none"),
+        train_dataset=dataset,
+    )
+
+    assert trainer.processing_class.pad_token_id == trainer.processing_class.eos_token_id
+    assert trainer.pad_token_id == trainer.processing_class.eos_token_id
+
+
 class TestGOLDTrainerLoss(TrlTestCase):
     def setup_method(self):
         self.model_id = "trl-internal-testing/tiny-Qwen2ForCausalLM-2.5"

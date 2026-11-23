@@ -1294,11 +1294,14 @@ class GOLDTrainer(SFTTrainer):
         if isinstance(processing_class, ProcessorMixin):
             self._tokenizer = processing_class.tokenizer
             self._is_vlm = True
-            if self._tokenizer.pad_token is None:
-                self._tokenizer.pad_token = self._tokenizer.eos_token
-        else:
+        elif isinstance(processing_class, PreTrainedTokenizerBase):
             self._tokenizer = processing_class
             self._is_vlm = False
+        else:
+            raise TypeError("The `processing_class` must be either a `PreTrainedTokenizerBase` or a `ProcessorMixin`")
+
+        if self._tokenizer.pad_token is None:
+            self._tokenizer.pad_token = self._tokenizer.eos_token
 
         self.pad_token_id = self._tokenizer.pad_token_id
         self.use_privileged_context = args.use_privileged_context
